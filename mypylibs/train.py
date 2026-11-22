@@ -160,6 +160,20 @@ def run_experiment(backbone, subset, augment, datasets, cfg, out_dir, device='cu
         return hist, json.load(f)
 
 
+def baseline_mare(depth, splits):
+    """Test MARE of two 'blind' predictors that never look at the RGB image.
+
+    Both only use the training depths: the median training depth everywhere, and the
+    per-pixel mean training depth map (an 'average room').
+    """
+    train, test = depth[splits['train']], depth[splits['test']]
+    valid = (train > 0).float()
+    mean_map = (train * valid).sum(0, keepdim=True) / valid.sum(0, keepdim=True).clamp(min=1)
+    median = train[train > 0].median()
+    return {'median depth everywhere': mare_per_image(torch.full_like(test, median.item()), test).mean().item(),
+            'mean training depth map': mare_per_image(mean_map.expand_as(test), test).mean().item()}
+
+
 def load_model(backbone, run_dir, device='cuda'):
     model = DepthNet(backbone)
     model.load_state_dict(torch.load(os.path.join(run_dir, 'best.pt'), map_location=device))

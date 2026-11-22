@@ -58,10 +58,28 @@ def results_table(results: dict, backbones, subsets=('full', 'reduced'), suffix=
     return pd.DataFrame(rows).set_index('model')
 
 
-def plot_mare_bars(df: pd.DataFrame):
+def gap_table(histories: dict, backbones, subsets=('full', 'reduced'), suffix=''):
+    """Validation minus training loss, at the selected (best) epoch and at the last epoch."""
+    rows = []
+    for b in backbones:
+        row = {'model': b, 'family': FAMILY[b]}
+        for s in subsets:
+            h = histories[f'{b}_{s}{suffix}']
+            e = h['best_epoch']
+            row[f'best epoch ({s})'] = e + 1
+            row[f'gap at best ({s})'] = h['val_loss'][e] - h['train_loss'][e]
+            row[f'gap at end ({s})'] = h['val_loss'][-1] - h['train_loss'][-1]
+        rows.append(row)
+    return pd.DataFrame(rows).set_index('model')
+
+
+def plot_mare_bars(df: pd.DataFrame, baseline: float | None = None):
     cols = [c for c in df.columns if c.startswith('MARE')]
-    ax = df[cols].plot.bar(figsize=(7, 3.5), rot=0)
+    ax = df[cols].plot.bar(figsize=(9, 3.5), rot=0)
     ax.set_ylabel('test MARE (lower is better)'), ax.grid(axis='y', alpha=0.3)
+    if baseline is not None:
+        ax.axhline(baseline, ls='--', c='grey', lw=1, label='mean training depth map (no image)')
+    ax.legend(loc='upper left', bbox_to_anchor=(1.01, 1), fontsize=8)
     for cont in ax.containers:
         ax.bar_label(cont, fmt='%.3f', fontsize=8)
     plt.tight_layout()
